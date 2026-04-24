@@ -41,13 +41,15 @@ signal_types:
     status: proposed
     issuers_in_production: []
     divergence: >
-      Behavioral fields (tasks_completed_30d, capabilities_verified,
-      available_for_routing) are returned by cert_registry but belong to
-      the behavioral_trust signal, not the identity layer. They have been
-      moved to the behavioral_trust entry to avoid double-counting when a
-      consumer composes both signals from PCH.
-      Production data pending — live registry currently contains test
-      agents only with path_score: null.
+      path_score and path_tier are behavioral fields (computed from task reliability,
+      payment volume, account age) and belong under behavioral_trust only. They have
+      been removed from trust_verification.signed_payload_fields to prevent
+      double-counting when a consumer composes both signals from PCH.
+      Similarly, tasks_completed_30d, capabilities_verified, and available_for_routing
+      belong to the behavioral layer and are listed under behavioral_trust only.
+      agent_id is retained here as a join key (identifier, not a composable value).
+      Production data pending — live registry currently contains test agents only
+      with path_score: null.
     notes: >
       PCH issues ERC-8004 agent identities anchored on Base L2 (chain_id 8453).
       Each agent has a verifiable on-chain identity with a cert tier
@@ -57,16 +59,14 @@ signal_types:
       cryptographic attestation cannot be spoofed without compromising
       the underlying key.
     signed_payload_fields:
-      - agent_id        # string — PCH agent identifier
+      - agent_id        # string — PCH agent identifier (join key only)
       - achieved_tier   # string — uncertified/bronze/silver/gold
-      - path_score      # integer 0-850 — behavioral trust score
-      - path_tier       # string — trust tier label
     endpoints:
       cert_registry: "https://gateway.pathcoursehealth.com/v1/cert/registry"
       cert_registry_filtered: "https://gateway.pathcoursehealth.com/v1/cert/registry?tier={tier}"
       erc8004_identity: "https://gateway.pathcoursehealth.com/v1/agents/{agent_id}/erc8004.json"
       agent_card: "https://gateway.pathcoursehealth.com/.well-known/agent.json"
- 
+
   behavioral_trust:
     canonical: behavioral_trust
     internal: "Path Score (0-850)"
@@ -94,7 +94,7 @@ signal_types:
     endpoints:
       score: "https://gateway.pathcoursehealth.com/v1/cert/registry?tier={tier}"
       erc8004: "https://gateway.pathcoursehealth.com/v1/agents/{agent_id}/erc8004.json"
- 
+
   settlement_witness:
     canonical: settlement_witness
     match: no_mapping
@@ -109,7 +109,7 @@ signal_types:
       does not currently have a canonical term for this signal type.
       Flagged for potential future vocabulary addition.
     primary_issuer_pointer: "InsumerAPI  # repo path unconfirmed"
- 
+
   governance_attestation:
     canonical: governance_attestation
     match: no_mapping
@@ -124,7 +124,7 @@ signal_types:
       authorization. See aeoess/agent-passport-system for the full structural
       defense including T-YYYY.003 mitigation.
     primary_issuer_pointer: aeoess/agent-passport-system
- 
+
   security_posture:
     canonical: security_posture
     match: no_mapping
@@ -133,7 +133,7 @@ signal_types:
       the gateway. Infrastructure-level cert tier and Path Score are
       identity and trust signals, not security posture assessments.
     primary_issuer_pointer: aeoess/agent-passport-system
- 
+
   wallet_state:
     canonical: wallet_state
     match: no_mapping
@@ -142,7 +142,7 @@ signal_types:
       not attest to general wallet holdings or external balances.
       Balance is an operational signal, not a wallet state attestation.
     primary_issuer_pointer: "InsumerAPI  # repo path unconfirmed"
- 
+
   passport_grade:
     canonical: passport_grade
     match: no_mapping
@@ -151,7 +151,7 @@ signal_types:
       grades. Tier membership is orthogonal to passport grade as defined
       in the vocabulary.
     primary_issuer_pointer: aeoess/agent-passport-system
- 
+
   wallet_intelligence:
     canonical: wallet_intelligence
     match: no_mapping
@@ -159,7 +159,7 @@ signal_types:
       PCH does not perform behavioral wallet classification or on-chain
       pattern analysis beyond payment-witnessing.
     primary_issuer_pointer: "RNWY  # repo path unconfirmed"
- 
+
   reasoning_integrity:
     canonical: reasoning_integrity
     match: no_mapping
@@ -168,7 +168,7 @@ signal_types:
       observability tooling but does not attest to model reasoning quality
       or output integrity.
     primary_issuer_pointer: "ThoughtProof  # repo path unconfirmed"
- 
+
   compliance_risk:
     canonical: compliance_risk
     match: no_mapping
@@ -177,7 +177,7 @@ signal_types:
       Cert tier and Path Score are trust signals, not regulatory compliance
       indicators.
     primary_issuer_pointer: "Revettr  # repo path unconfirmed"
- 
+
   job_performance:
     canonical: job_performance
     match: no_mapping
@@ -185,7 +185,7 @@ signal_types:
       PCH tracks tasks_completed_30d in cert_registry as an infrastructure
       signal but does not attest to task quality or completion outcomes.
     primary_issuer_pointer: "Maiat  # repo path unconfirmed"
- 
+
   peer_review:
     canonical: peer_review
     match: no_mapping
@@ -193,7 +193,7 @@ signal_types:
       PCH does not issue peer-review attestations or task-completion
       credentials.
     primary_issuer_pointer: "RNWY  # repo path unconfirmed"
- 
+
 # ─────────────────────────────────────────────────
 # ENVELOPE
 # ─────────────────────────────────────────────────
@@ -219,7 +219,7 @@ envelope:
       audit use cases. Not the primary revocation path for operational-speed
       revocation — L2 block time and cost make it unsuitable for sub-second
       cascade revocation. Operational revocation not currently implemented.
- 
+
 # ─────────────────────────────────────────────────
 # TRANSPORT
 # ─────────────────────────────────────────────────
@@ -231,7 +231,7 @@ transport:
   anchor_chain: "Base L2 (mainnet, chain_id 8453)"
   anchor_explorer: "https://basescan.org"
   usdc_contract: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
- 
+
 # ─────────────────────────────────────────────────
 # DESCRIPTOR DIMENSIONS
 # ─────────────────────────────────────────────────
@@ -242,8 +242,8 @@ descriptor_dimensions:
   invariant_survival: post_action
   replay_class: full_replay
   governed_action_class: transfer
- 
+
 crosswalk_metadata:
   authored_by: "@alex-pathcourse"
   vocabulary_version: "0.1.0"
-  last_reviewed: "2026-04-23"
+  last_reviewed: "2026-04-24"
